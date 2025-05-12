@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cancellation Betting System Tracker</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+        }
+
+        .control-panel {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
+        #set-sequence {
+            background-color: #3498db;
+            color: white;
+            margin-top: 10px;
+        }
+
+        #set-sequence:hover {
+            background-color: #2980b9;
+        }
+
+        #win-btn {
+            background-color: #2ecc71;
+            color: white;
+        }
+
+        #win-btn:hover {
+            background-color: #27ae60;
+        }
+
+        #loss-btn {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        #loss-btn:hover {
+            background-color: #c0392b;
+        }
+
+        #reset-btn {
+            background-color: #f39c12;
+            color: white;
+        }
+
+        #reset-btn:hover {
+            background-color: #d35400;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .display-panel {
+            display: flex;
+            gap: 20px;
+        }
+
+        .sequence-display, .history-display {
+            flex: 1;
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 6px;
+        }
+
+        .sequence-display h2, .history-display h2 {
+            margin-top: 0;
+            color: #2c3e50;
+            border-bottom: 2px solid #bdc3c7;
+            padding-bottom: 10px;
+        }
+
+        #current-sequence {
+            font-size: 18px;
+            font-weight: bold;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .number-box {
+            background-color: #3498db;
+            color: white;
+            min-width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 20px;
+            font-size: 16px;
+            padding: 0 10px;
+        }
+
+        .crossed {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        .win-row {
+            background-color: rgba(46, 204, 113, 0.1);
+        }
+
+        .loss-row {
+            background-color: rgba(231, 76, 60, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .display-panel {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cancellation Betting System Tracker</h1>
+        
+        <div class="control-panel">
+            <div class="input-group">
+                <label for="sequence-input">Initial Sequence (comma separated numbers):</label>
+                <input type="text" id="sequence-input" placeholder="e.g. 1,2,3 or 0.5,0.5,1.5">
+                <button id="set-sequence">Set Sequence</button>
+            </div>
+            
+            <div class="input-group">
+                <label for="bet-amount">Current Bet Amount:</label>
+                <input type="text" id="bet-amount" readonly>
+            </div>
+            
+            <div class="action-buttons">
+                <button id="win-btn">Win</button>
+                <button id="loss-btn">Loss</button>
+                <button id="reset-btn">Reset</button>
+                <button id="clear-storage-btn">Clear All Data</button>
+            </div>
+        </div>
+        
+        <div class="display-panel">
+            <div class="sequence-display">
+                <h2>Current Sequence</h2>
+                <div id="current-sequence"></div>
+            </div>
+            
+            <div class="history-display">
+                <h2>Betting History</h2>
+                <table id="history-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                            <th>Sequence Before</th>
+                            <th>Sequence After</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const sequenceInput = document.getElementById('sequence-input');
+            const setSequenceBtn = document.getElementById('set-sequence');
+            const betAmountDisplay = document.getElementById('bet-amount');
+            const winBtn = document.getElementById('win-btn');
+            const lossBtn = document.getElementById('loss-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const clearStorageBtn = document.getElementById('clear-storage-btn');
+            const currentSequenceDisplay = document.getElementById('current-sequence');
+            const historyTableBody = document.querySelector('#history-table tbody');
+            
+            // Initialize variables from localStorage or defaults
+            let sequence = loadFromStorage('sequence') || [1, 2, 3];
+            let history = loadFromStorage('history') || [];
+            let betCount = loadFromStorage('betCount') || 0;
+            
+            // Set initial input value
+            sequenceInput.value = sequence.join(',');
+            
+            // Initialize the app
+            updateDisplay();
+            
+            // Event listeners
+            setSequenceBtn.addEventListener('click', setSequence);
+            winBtn.addEventListener('click', () => handleResult('win'));
+            lossBtn.addEventListener('click', () => handleResult('loss'));
+            resetBtn.addEventListener('click', resetApp);
+            clearStorageBtn.addEventListener('click', clearStorage);
+            
+            // Storage functions
+            function saveToStorage(key, value) {
+                localStorage.setItem(`cancellationBetting_${key}`, JSON.stringify(value));
+            }
+            
+            function loadFromStorage(key) {
+                const data = localStorage.getItem(`cancellationBetting_${key}`);
+                return data ? JSON.parse(data) : null;
+            }
+            
+            function clearStorage() {
+                if (confirm('Are you sure you want to clear ALL saved data? This cannot be undone.')) {
+                    localStorage.removeItem('cancellationBetting_sequence');
+                    localStorage.removeItem('cancellationBetting_history');
+                    localStorage.removeItem('cancellationBetting_betCount');
+                    sequence = [1, 2, 3];
+                    history = [];
+                    betCount = 0;
+                    sequenceInput.value = sequence.join(',');
+                    updateDisplay();
+                    alert('All data has been cleared.');
+                }
+            }
+            
+            // App functions
+            function setSequence() {
+                const input = sequenceInput.value.trim();
+                if (input) {
+                    // Parse numbers while preserving decimals
+                    sequence = input.split(',')
+                        .map(num => parseFloat(num.trim()))
+                        .filter(num => !isNaN(num));
+                    
+                    if (sequence.length > 0) {
+                        saveToStorage('sequence', sequence);
+                        updateDisplay();
+                    } else {
+                        alert('Please enter valid numbers separated by commas');
+                    }
+                }
+            }
+            
+            function calculateBetAmount() {
+                if (sequence.length === 0) return 0;
+                if (sequence.length === 1) return sequence[0];
+                // Calculate sum with decimal precision
+                return parseFloat((sequence[0] + sequence[sequence.length - 1]).toFixed(2));
+            }
+            
+            function handleResult(result) {
+                const betAmount = calculateBetAmount();
+                const sequenceBefore = [...sequence];
+                const now = new Date();
+                
+                if (sequence.length === 0) {
+                    alert('Sequence is empty. Please set a new sequence.');
+                    return;
+                }
+                
+                betCount++;
+                
+                if (result === 'win') {
+                    if (sequence.length >= 2) {
+                        sequence.pop(); // Remove last number
+                        sequence.shift(); // Remove first number
+                    } else {
+                        sequence = []; // Clear sequence if only one number left
+                    }
+                } else { // loss
+                    // Add the lost amount to the end with proper decimal handling
+                    sequence.push(parseFloat(betAmount.toFixed(2)));
+                }
+                
+                // Add to history
+                const historyEntry = {
+                    id: betCount,
+                    type: result,
+                    amount: betAmount,
+                    sequenceBefore: sequenceBefore.map(num => num.toFixed(2)).join(', '),
+                    sequenceAfter: sequence.map(num => num.toFixed(2)).join(', '),
+                    timestamp: now.toISOString(),
+                    displayDate: now.toLocaleString()
+                };
+                
+                history.unshift(historyEntry);
+                
+                // Save to storage
+                saveToStorage('sequence', sequence);
+                saveToStorage('history', history);
+                saveToStorage('betCount', betCount);
+                
+                updateDisplay();
+            }
+            
+            function updateDisplay() {
+                // Update bet amount
+                const betAmount = calculateBetAmount();
+                betAmountDisplay.value = betAmount > 0 ? betAmount.toFixed(2) : 'Sequence Complete';
+                
+                // Update current sequence display
+                currentSequenceDisplay.innerHTML = '';
+                if (sequence.length === 0) {
+                    currentSequenceDisplay.textContent = 'Sequence completed! Set a new sequence to continue.';
+                } else {
+                    sequence.forEach(num => {
+                        const numBox = document.createElement('div');
+                        numBox.className = 'number-box';
+                        // Display numbers with 2 decimal places if needed
+                        numBox.textContent = num % 1 === 0 ? num : num.toFixed(2);
+                        currentSequenceDisplay.appendChild(numBox);
+                    });
+                }
+                
+                // Update history table
+                historyTableBody.innerHTML = '';
+                history.forEach(record => {
+                    const row = document.createElement('tr');
+                    
+                    const typeClass = record.type === 'win' ? 'win-row' : 'loss-row';
+                    row.classList.add(typeClass);
+                    
+                    row.innerHTML = `
+                        <td>${record.id}</td>
+                        <td>${record.type.toUpperCase()}</td>
+                        <td>${parseFloat(record.amount).toFixed(2)}</td>
+                        <td>${record.sequenceBefore}</td>
+                        <td>${record.sequenceAfter}</td>
+                        <td>${record.displayDate || new Date(record.timestamp).toLocaleString()}</td>
+                    `;
+                    
+                    historyTableBody.appendChild(row);
+                });
+            }
+            
+            function resetApp() {
+                if (confirm('Reset the current sequence and history? Your data will remain in storage.')) {
+                    sequence = loadFromStorage('sequence') || [1, 2, 3];
+                    history = [];
+                    betCount = 0;
+                    sequenceInput.value = sequence.join(',');
+                    saveToStorage('history', history);
+                    saveToStorage('betCount', betCount);
+                    updateDisplay();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
