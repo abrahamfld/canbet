@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GHS Odds Rollover Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .container {
+      background: white;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      width: 360px;
+    }
+    h2 {
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    input, button {
+      padding: 10px;
+      width: 100%;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    button {
+      cursor: pointer;
+      background-color: #007bff;
+      color: white;
+      font-weight: bold;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .odds-list div {
+      display: flex;
+      justify-content: space-between;
+      background: #eee;
+      padding: 6px 10px;
+      border-radius: 5px;
+      margin-bottom: 5px;
+    }
+    .result {
+      margin-top: 15px;
+      background: #fafafa;
+      padding: 15px;
+      border-radius: 5px;
+      border: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>GHS Odds Rollover Tracker</h2>
+
+    <input type="number" id="stakeInput" placeholder="Enter initial stake (₵)" step="0.01" min="0.01">
+    <button onclick="setStake()">Set Initial Stake</button>
+
+    <input type="number" id="oddInput" placeholder="Enter new odd" step="0.01" min="1.01">
+    <button onclick="addOdd()">Add Odd</button>
+
+    <div class="odds-list" id="oddsList"></div>
+
+    <div class="result">
+      <p><strong>Initial Stake:</strong> ₵<span id="initialStake">0.00</span></p>
+      <p><strong>Total Odds:</strong> <span id="totalOdds">1.00</span></p>
+      <p><strong>Expected Return:</strong> ₵<span id="expectedReturn">0.00</span></p>
+      <p><strong>Needed to reach 2.0:</strong> <span id="neededOdds">-</span></p>
+      <button onclick="resetAll()">Reset All</button>
+    </div>
+  </div>
+
+  <script>
+    let odds = JSON.parse(localStorage.getItem('oddsList')) || [];
+    let initialStake = parseFloat(localStorage.getItem('initialStake')) || 0;
+
+    function setStake() {
+      const stakeInput = document.getElementById('stakeInput');
+      const value = parseFloat(stakeInput.value);
+      if (isNaN(value) || value <= 0) {
+        alert("Please enter a valid initial stake amount.");
+        return;
+      }
+      initialStake = value;
+      localStorage.setItem('initialStake', initialStake);
+      stakeInput.value = '';
+      updateDisplay();
+    }
+
+    function addOdd() {
+      let input = document.getElementById('oddInput');
+      let value = parseFloat(input.value);
+      if (isNaN(value) || value < 1.01) {
+        alert("Enter a valid odd greater than 1.01");
+        return;
+      }
+      odds.push(value);
+      localStorage.setItem('oddsList', JSON.stringify(odds));
+      input.value = '';
+      updateDisplay();
+    }
+
+    function removeOdd(index) {
+      odds.splice(index, 1);
+      localStorage.setItem('oddsList', JSON.stringify(odds));
+      updateDisplay();
+    }
+
+    function resetAll() {
+      odds = [];
+      initialStake = 0;
+      localStorage.removeItem('oddsList');
+      localStorage.removeItem('initialStake');
+      updateDisplay();
+    }
+
+    function updateDisplay() {
+      let total = odds.reduce((acc, val) => acc * val, 1);
+      let returnValue = (initialStake * total).toFixed(2);
+      let needed = (2 / total).toFixed(2);
+
+      document.getElementById('initialStake').textContent = initialStake.toFixed(2);
+      document.getElementById('totalOdds').textContent = total.toFixed(2);
+      document.getElementById('expectedReturn').textContent = initialStake > 0 ? returnValue : "0.00";
+      document.getElementById('neededOdds').textContent = total >= 2 ? "Target reached!" : `Need ×${needed} more`;
+
+      let listHtml = odds.map((o, i) =>
+        `<div>Odd: ${o.toFixed(2)} <button onclick="removeOdd(${i})">✖</button></div>`
+      ).join('');
+      document.getElementById('oddsList').innerHTML = listHtml;
+    }
+
+    // On page load
+    updateDisplay();
+  </script>
+</body>
+</html>
