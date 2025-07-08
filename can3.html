@@ -54,7 +54,7 @@
         <div class="max-w-md mx-auto bg-white rounded-lg shadow-md overflow-hidden">
             <div class="bg-blue-600 px-6 py-4">
                 <h1 class="text-xl font-bold text-white">3-Number Cancellation System</h1>
-                <p class="text-blue-100 text-sm mt-1">1st number + last two numbers</p>
+                <p class="text-blue-100 text-sm mt-1">1st number + last two numbers (or all available numbers)</p>
             </div>
             
             <div class="p-6">
@@ -84,8 +84,8 @@
                         <input 
                             x-model="stakeAmount" 
                             type="number" 
-                            min="1" 
-                            step="1"
+                            min="0.1" 
+                            step="0.1"
                             class="w-full shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
                             placeholder="Stake amount"
                         >
@@ -110,13 +110,13 @@
                                         'bg-red-200': highlightRemoved.includes(index),
                                         'pulse': (index === 0 || index >= currentSequence.length - 2) && currentSequence.length >= 3
                                     }"
-                                    x-text="num"
+                                    x-text="Number.isInteger(num) ? num : num.toFixed(1)"
                                 ></div>
                             </template>
                         </div>
                         
                         <p class="text-gray-500 text-sm mt-2" x-show="currentSequence.length === 0">
-                            Add numbers to begin (minimum 3)
+                            Add numbers to begin
                         </p>
                     </div>
                 </div>
@@ -126,14 +126,25 @@
                     <div class="flex justify-between items-center">
                         <span class="text-gray-700 font-medium">Next Stake:</span>
                         <span class="text-2xl font-bold text-blue-600" 
-                              x-text="currentSequence.length >= 3 ? (nextStake + ' × ' + stakeAmount + ' = ' + (nextStake * stakeAmount)) : 'Add 3+ numbers'">
+                              x-text="currentSequence.length > 0 ? (nextStake + ' × ' + stakeAmount + ' = ' + (nextStake * stakeAmount).toFixed(2)) : 'Add numbers'">
                         </span>
                     </div>
                     <div class="mt-2 text-sm text-gray-600" x-show="currentSequence.length >= 3">
                         (1st + last two: 
-                        <span x-text="currentSequence[0]"></span>
-                        <span x-text="' + ' + currentSequence[currentSequence.length - 2]"></span>
-                        <span x-text="' + ' + currentSequence[currentSequence.length - 1]"></span>
+                        <span x-text="formatNumber(currentSequence[0])"></span>
+                        <span x-text="' + ' + formatNumber(currentSequence[currentSequence.length - 2])"></span>
+                        <span x-text="' + ' + formatNumber(currentSequence[currentSequence.length - 1])"></span>
+                        <span x-text="' = ' + nextStake"></span>)
+                    </div>
+                    <div class="mt-2 text-sm text-gray-600" x-show="currentSequence.length === 2">
+                        (Sum of both: 
+                        <span x-text="formatNumber(currentSequence[0])"></span>
+                        <span x-text="' + ' + formatNumber(currentSequence[1])"></span>
+                        <span x-text="' = ' + nextStake"></span>)
+                    </div>
+                    <div class="mt-2 text-sm text-gray-600" x-show="currentSequence.length === 1">
+                        (Single number: 
+                        <span x-text="formatNumber(currentSequence[0])"></span>
                         <span x-text="' = ' + nextStake"></span>)
                     </div>
                 </div>
@@ -142,17 +153,17 @@
                 <div class="grid grid-cols-2 gap-2 mb-6">
                     <button 
                         @click="recordWin"
-                        :disabled="currentSequence.length < 3 || stakeAmount <= 0"
+                        :disabled="currentSequence.length < 1 || stakeAmount <= 0"
                         class="bg-green-500 hover:bg-green-700 text-white font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        WIN (+<span x-text="nextStake * stakeAmount"></span>)
+                        WIN (+<span x-text="(nextStake * stakeAmount).toFixed(2)"></span>)
                     </button>
                     <button 
                         @click="recordLoss"
-                        :disabled="currentSequence.length < 3 || stakeAmount <= 0"
+                        :disabled="currentSequence.length < 1 || stakeAmount <= 0"
                         class="bg-red-500 hover:bg-red-700 text-white font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        LOSS (-<span x-text="stakeAmount"></span>)
+                        LOSS (-<span x-text="stakeAmount.toFixed(2)"></span>)
                     </button>
                 </div>
                 
@@ -167,7 +178,7 @@
                             @keyup.enter="addNumbers"
                             class="shadow appearance-none border rounded-l w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
                             type="text" 
-                            placeholder="e.g. 1,2,3 or single number"
+                            placeholder="e.g. 1,2.5,3 or single number"
                         >
                         <button 
                             @click="addNumbers"
@@ -206,7 +217,7 @@
                                 <div class="text-sm grid grid-cols-2 gap-2 mb-1">
                                     <div>
                                         <span class="text-gray-600">Stake:</span>
-                                        <span class="font-medium ml-1" x-text="game.stake"></span>
+                                        <span class="font-medium ml-1" x-text="game.stake.toFixed(2)"></span>
                                     </div>
                                     <div>
                                         <span class="text-gray-600">Next Stake:</span>
@@ -223,7 +234,7 @@
                                                     'bg-red-200': game.removedIndices.includes(numIndex),
                                                     'bg-green-200': game.addedIndices.includes(numIndex)
                                                 }"
-                                                x-text="num"
+                                                x-text="formatNumber(num)"
                                             ></div>
                                         </template>
                                     </div>
@@ -234,7 +245,7 @@
                                         <template x-for="(num, numIndex) in game.sequenceAfter" :key="numIndex">
                                             <div 
                                                 class="bg-gray-200 rounded-full w-6 h-6 flex items-center justify-center text-xs"
-                                                x-text="num"
+                                                x-text="formatNumber(num)"
                                             ></div>
                                         </template>
                                     </div>
@@ -275,8 +286,8 @@
                 gameHistory: [],
                 nextStake: 0,
                 stakeAmount: 10,
-                initialBankroll: 1000,
-                bankroll: 1000,
+                initialBankroll: 100,
+                bankroll: 100,
                 wins: 0,
                 losses: 0,
                 highlightAdded: [],
@@ -292,15 +303,19 @@
                         this.gameHistory = data.gameHistory || [];
                         this.nextStake = data.nextStake || 0;
                         this.stakeAmount = data.stakeAmount || 10;
-                        this.initialBankroll = data.initialBankroll || 1000;
-                        this.bankroll = data.bankroll || 1000;
+                        this.initialBankroll = data.initialBankroll || 100;
+                        this.bankroll = data.bankroll || 100;
                         this.wins = data.wins || 0;
                         this.losses = data.losses || 0;
                         
-                        if (this.currentSequence.length >= 3) {
+                        if (this.currentSequence.length > 0) {
                             this.calculateNextStake();
                         }
                     }
+                },
+                
+                formatNumber(num) {
+                    return Number.isInteger(num) ? num : num.toFixed(1);
                 },
                 
                 addNumbers() {
@@ -320,8 +335,8 @@
                         return;
                     }
                     
-                    // Convert to numbers
-                    const parsedNumbers = numbers.map(num => parseInt(num));
+                    // Convert to numbers (using parseFloat to handle decimals)
+                    const parsedNumbers = numbers.map(num => parseFloat(num));
                     
                     // Track added numbers for highlighting
                     const startIndex = this.currentSequence.length;
@@ -336,16 +351,14 @@
                         this.highlightAdded = [];
                     }, 1500);
                     
-                    // Calculate next stake if we have at least 3 numbers
-                    if (this.currentSequence.length >= 3) {
-                        this.calculateNextStake();
-                    }
+                    // Calculate next stake
+                    this.calculateNextStake();
                     
                     this.saveState();
                 },
                 
                 recordWin() {
-                    if (this.currentSequence.length < 3 || this.stakeAmount <= 0) return;
+                    if (this.currentSequence.length < 1 || this.stakeAmount <= 0) return;
                     
                     const winnings = this.nextStake * this.stakeAmount;
                     this.bankroll += winnings;
@@ -353,24 +366,31 @@
                     
                     // Save sequence before modification
                     const sequenceBefore = [...this.currentSequence];
-                    const removedIndices = [0, this.currentSequence.length - 2, this.currentSequence.length - 1];
+                    let removedIndices = [];
+                    let newSequence = [];
                     
-                    // Remove 1st and last two numbers
-                    const newSequence = this.currentSequence.filter((_, index) => 
-                        index !== 0 && 
-                        index !== this.currentSequence.length - 1 && 
-                        index !== this.currentSequence.length - 2
-                    );
-                    
-                    // Add the sum to the end
-                    newSequence.push(this.nextStake);
+                    if (this.currentSequence.length >= 3) {
+                        // For 3+ numbers: remove 1st and last two numbers
+                        removedIndices = [0, this.currentSequence.length - 2, this.currentSequence.length - 1];
+                        newSequence = this.currentSequence.filter((_, index) => 
+                            !removedIndices.includes(index)
+                        );
+                    } else if (this.currentSequence.length === 2) {
+                        // For 2 numbers: remove both numbers
+                        removedIndices = [0, 1];
+                        newSequence = [];
+                    } else {
+                        // For 1 number: remove the number
+                        removedIndices = [0];
+                        newSequence = [];
+                    }
                     
                     // Record in history
                     this.gameHistory.unshift({
                         sequenceBefore: sequenceBefore,
                         sequenceAfter: newSequence,
                         removedIndices: removedIndices,
-                        addedIndices: [newSequence.length - 1],
+                        addedIndices: [],
                         nextStake: this.nextStake,
                         stake: this.stakeAmount,
                         result: 'win',
@@ -384,14 +404,10 @@
                     this.highlightRemoved = removedIndices;
                     setTimeout(() => {
                         this.highlightRemoved = [];
-                        this.highlightAdded = [this.currentSequence.length - 1];
-                        setTimeout(() => {
-                            this.highlightAdded = [];
-                        }, 1000);
                     }, 500);
                     
-                    // Recalculate next stake
-                    if (this.currentSequence.length >= 3) {
+                    // Recalculate next stake if we have numbers left
+                    if (this.currentSequence.length > 0) {
                         this.calculateNextStake();
                     } else {
                         this.nextStake = 0;
@@ -401,7 +417,7 @@
                 },
                 
                 recordLoss() {
-                    if (this.currentSequence.length < 3 || this.stakeAmount <= 0) return;
+                    if (this.currentSequence.length < 1 || this.stakeAmount <= 0) return;
                     
                     this.bankroll -= this.stakeAmount;
                     this.losses++;
@@ -440,22 +456,31 @@
                 },
                 
                 calculateNextStake() {
-                    if (this.currentSequence.length < 3) {
+                    if (this.currentSequence.length === 0) {
                         this.nextStake = 0;
                         return;
                     }
                     
-                    // Highlight the 1st and last two numbers being used for calculation
-                    this.highlightCurrent = [0, this.currentSequence.length - 2, this.currentSequence.length - 1];
+                    // Highlight the numbers being used for calculation
+                    if (this.currentSequence.length >= 3) {
+                        // For 3+ numbers: 1st + last two numbers
+                        this.highlightCurrent = [0, this.currentSequence.length - 2, this.currentSequence.length - 1];
+                        this.nextStake = this.currentSequence[0] + 
+                                        this.currentSequence[this.currentSequence.length - 2] + 
+                                        this.currentSequence[this.currentSequence.length - 1];
+                    } else if (this.currentSequence.length === 2) {
+                        // For 2 numbers: sum of both numbers
+                        this.highlightCurrent = [0, 1];
+                        this.nextStake = this.currentSequence[0] + this.currentSequence[1];
+                    } else {
+                        // For 1 number: the number itself
+                        this.highlightCurrent = [0];
+                        this.nextStake = this.currentSequence[0];
+                    }
                     
                     setTimeout(() => {
                         this.highlightCurrent = [];
                     }, 1500);
-                    
-                    // Next stake is sum of 1st number + last two numbers
-                    this.nextStake = this.currentSequence[0] + 
-                                    this.currentSequence[this.currentSequence.length - 2] + 
-                                    this.currentSequence[this.currentSequence.length - 1];
                 },
                 
                 resetSystem() {
