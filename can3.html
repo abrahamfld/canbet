@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3-Number Cancellation System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .number-cell {
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .number-cell.added::before {
+            content: '+';
+            position: absolute;
+            left: -15px;
+            color: green;
+            font-weight: bold;
+        }
+        .number-cell.removed {
+            transform: scale(0);
+            opacity: 0;
+        }
+        .number-cell.cancelled {
+            opacity: 0.5;
+            text-decoration: line-through;
+        }
+        .win-bg {
+            background-color: #d1fae5;
+        }
+        .loss-bg {
+            background-color: #fee2e2;
+        }
+        @keyframes highlight {
+            0% { background-color: rgba(59, 130, 246, 0.3); }
+            100% { background-color: transparent; }
+        }
+        .highlight {
+            animation: highlight 1.5s ease-out;
+        }
+        .pulse {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen" x-data="app()" x-init="init()" x-cloak>
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-md mx-auto bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="bg-blue-600 px-6 py-4">
+                <h1 class="text-xl font-bold text-white">3-Number Cancellation System</h1>
+                <p class="text-blue-100 text-sm mt-1">1st number + last two numbers</p>
+            </div>
+            
+            <div class="p-6">
+                <!-- Bankroll Tracker -->
+                <div class="mb-6 bg-gray-50 p-4 rounded-lg">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-gray-700 font-medium">Bankroll:</span>
+                        <span class="text-2xl font-bold" 
+                              :class="{'text-green-600': bankroll >= initialBankroll, 'text-red-600': bankroll < initialBankroll}"
+                              x-text="'$' + bankroll.toFixed(2)">
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                            <span class="text-gray-600">Initial:</span>
+                            <span class="font-medium ml-1" x-text="'$' + initialBankroll.toFixed(2)"></span>
+                        </div>
+                        <div>
+                            <span class="text-gray-600">Profit/Loss:</span>
+                            <span class="font-medium ml-1" 
+                                  :class="(bankroll - initialBankroll) >= 0 ? 'text-green-600' : 'text-red-600'"
+                                  x-text="'$' + (bankroll - initialBankroll).toFixed(2)">
+                            </span>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <input 
+                            x-model="stakeAmount" 
+                            type="number" 
+                            min="1" 
+                            step="1"
+                            class="w-full shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                            placeholder="Stake amount"
+                        >
+                    </div>
+                </div>
+                
+                <!-- Current Sequence -->
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-lg font-semibold text-gray-800">Current Sequence</h2>
+                        <span class="text-sm text-gray-500" x-text="'Count: ' + currentSequence.length"></span>
+                    </div>
+                    
+                    <div class="sequence-container bg-gray-50 p-3 rounded-lg min-h-20">
+                        <div class="flex flex-wrap gap-2 items-center" id="sequence-display">
+                            <template x-for="(num, index) in currentSequence" :key="index">
+                                <div 
+                                    class="number-cell bg-gray-200 rounded-full w-10 h-10 flex items-center justify-center font-bold"
+                                    :class="{
+                                        'added': highlightAdded.includes(index),
+                                        'highlight': highlightCurrent.includes(index),
+                                        'bg-red-200': highlightRemoved.includes(index),
+                                        'pulse': (index === 0 || index >= currentSequence.length - 2) && currentSequence.length >= 3
+                                    }"
+                                    x-text="num"
+                                ></div>
+                            </template>
+                        </div>
+                        
+                        <p class="text-gray-500 text-sm mt-2" x-show="currentSequence.length === 0">
+                            Add numbers to begin (minimum 3)
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Next Stake Display -->
+                <div class="mb-6 bg-blue-50 p-4 rounded-lg">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-700 font-medium">Next Stake:</span>
+                        <span class="text-2xl font-bold text-blue-600" 
+                              x-text="currentSequence.length >= 3 ? (nextStake + ' × ' + stakeAmount + ' = ' + (nextStake * stakeAmount)) : 'Add 3+ numbers'">
+                        </span>
+                    </div>
+                    <div class="mt-2 text-sm text-gray-600" x-show="currentSequence.length >= 3">
+                        (1st + last two: 
+                        <span x-text="currentSequence[0]"></span>
+                        <span x-text="' + ' + currentSequence[currentSequence.length - 2]"></span>
+                        <span x-text="' + ' + currentSequence[currentSequence.length - 1]"></span>
+                        <span x-text="' = ' + nextStake"></span>)
+                    </div>
+                </div>
+                
+                <!-- Game Controls -->
+                <div class="grid grid-cols-2 gap-2 mb-6">
+                    <button 
+                        @click="recordWin"
+                        :disabled="currentSequence.length < 3 || stakeAmount <= 0"
+                        class="bg-green-500 hover:bg-green-700 text-white font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        WIN (+<span x-text="nextStake * stakeAmount"></span>)
+                    </button>
+                    <button 
+                        @click="recordLoss"
+                        :disabled="currentSequence.length < 3 || stakeAmount <= 0"
+                        class="bg-red-500 hover:bg-red-700 text-white font-bold py-3 px-4 rounded focus:outline-none focus:shadow-outline disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        LOSS (-<span x-text="stakeAmount"></span>)
+                    </button>
+                </div>
+                
+                <!-- Number Input -->
+                <div class="mb-6">
+                    <label class="block text-gray-700 text-sm font-bold mb-2" for="numbers">
+                        Add numbers to sequence:
+                    </label>
+                    <div class="flex">
+                        <input 
+                            x-model="inputNumbers" 
+                            @keyup.enter="addNumbers"
+                            class="shadow appearance-none border rounded-l w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" 
+                            type="text" 
+                            placeholder="e.g. 1,2,3 or single number"
+                        >
+                        <button 
+                            @click="addNumbers"
+                            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-r focus:outline-none focus:shadow-outline"
+                        >
+                            Add
+                        </button>
+                    </div>
+                    <p class="text-red-500 text-xs italic mt-1" x-show="inputError" x-text="inputError"></p>
+                </div>
+                
+                <!-- Game History -->
+                <div>
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-lg font-semibold text-gray-800">Game History</h2>
+                        <button 
+                            @click="resetSystem"
+                            class="text-sm bg-gray-500 hover:bg-gray-700 text-white font-bold py-1 px-2 rounded focus:outline-none focus:shadow-outline"
+                        >
+                            Reset All
+                        </button>
+                    </div>
+                    <div class="bg-gray-50 rounded p-3 max-h-60 overflow-y-auto">
+                        <template x-if="gameHistory.length === 0">
+                            <p class="text-gray-500 text-center">No game history yet</p>
+                        </template>
+                        <template x-for="(game, index) in gameHistory" :key="index">
+                            <div class="mb-3 last:mb-0 p-2 rounded" :class="{'win-bg': game.result === 'win', 'loss-bg': game.result === 'loss'}">
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-medium">
+                                        <span x-text="game.result === 'win' ? 'WIN' : 'LOSS'"></span>
+                                        <span x-text="game.result === 'win' ? ' +' + (game.nextStake * game.stake).toFixed(2) : ' -' + game.stake.toFixed(2)"></span>
+                                    </span>
+                                    <span class="text-sm text-gray-500" x-text="new Date(game.timestamp).toLocaleTimeString()"></span>
+                                </div>
+                                <div class="text-sm grid grid-cols-2 gap-2 mb-1">
+                                    <div>
+                                        <span class="text-gray-600">Stake:</span>
+                                        <span class="font-medium ml-1" x-text="game.stake"></span>
+                                    </div>
+                                    <div>
+                                        <span class="text-gray-600">Next Stake:</span>
+                                        <span class="font-medium ml-1" x-text="game.nextStake"></span>
+                                    </div>
+                                </div>
+                                <div class="text-sm">
+                                    <span class="text-gray-600">Sequence Before:</span>
+                                    <div class="flex flex-wrap gap-1 mt-1">
+                                        <template x-for="(num, numIndex) in game.sequenceBefore" :key="numIndex">
+                                            <div 
+                                                class="bg-gray-200 rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                                                :class="{
+                                                    'bg-red-200': game.removedIndices.includes(numIndex),
+                                                    'bg-green-200': game.addedIndices.includes(numIndex)
+                                                }"
+                                                x-text="num"
+                                            ></div>
+                                        </template>
+                                    </div>
+                                </div>
+                                <div class="text-sm mt-1">
+                                    <span class="text-gray-600">Sequence After:</span>
+                                    <div class="flex flex-wrap gap-1 mt-1">
+                                        <template x-for="(num, numIndex) in game.sequenceAfter" :key="numIndex">
+                                            <div 
+                                                class="bg-gray-200 rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                                                x-text="num"
+                                            ></div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Stats Summary -->
+            <div class="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                <div class="grid grid-cols-3 gap-2 text-center text-sm">
+                    <div class="bg-green-100 p-2 rounded">
+                        <div class="font-bold text-green-800" x-text="wins"></div>
+                        <div class="text-green-600">Wins</div>
+                    </div>
+                    <div class="bg-red-100 p-2 rounded">
+                        <div class="font-bold text-red-800" x-text="losses"></div>
+                        <div class="text-red-600">Losses</div>
+                    </div>
+                    <div class="bg-blue-100 p-2 rounded">
+                        <div class="font-bold text-blue-800" x-text="wins + losses"></div>
+                        <div class="text-blue-600">Total</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script>
+        function app() {
+            return {
+                inputNumbers: '',
+                inputError: '',
+                currentSequence: [],
+                gameHistory: [],
+                nextStake: 0,
+                stakeAmount: 10,
+                initialBankroll: 1000,
+                bankroll: 1000,
+                wins: 0,
+                losses: 0,
+                highlightAdded: [],
+                highlightCurrent: [],
+                highlightRemoved: [],
+                
+                init() {
+                    // Load from localStorage if available
+                    const savedData = localStorage.getItem('cancellationSystem');
+                    if (savedData) {
+                        const data = JSON.parse(savedData);
+                        this.currentSequence = data.currentSequence || [];
+                        this.gameHistory = data.gameHistory || [];
+                        this.nextStake = data.nextStake || 0;
+                        this.stakeAmount = data.stakeAmount || 10;
+                        this.initialBankroll = data.initialBankroll || 1000;
+                        this.bankroll = data.bankroll || 1000;
+                        this.wins = data.wins || 0;
+                        this.losses = data.losses || 0;
+                        
+                        if (this.currentSequence.length >= 3) {
+                            this.calculateNextStake();
+                        }
+                    }
+                },
+                
+                addNumbers() {
+                    this.inputError = '';
+                    
+                    // Parse input (accept both single numbers and comma-separated)
+                    let numbers = [];
+                    if (this.inputNumbers.includes(',')) {
+                        numbers = this.inputNumbers.split(',').map(num => num.trim());
+                    } else {
+                        numbers = [this.inputNumbers.trim()];
+                    }
+                    
+                    // Validate input
+                    if (numbers.some(num => isNaN(num) || num === '')) {
+                        this.inputError = 'Please enter valid numbers';
+                        return;
+                    }
+                    
+                    // Convert to numbers
+                    const parsedNumbers = numbers.map(num => parseInt(num));
+                    
+                    // Track added numbers for highlighting
+                    const startIndex = this.currentSequence.length;
+                    this.highlightAdded = Array.from({length: parsedNumbers.length}, (_, i) => startIndex + i);
+                    
+                    // Add to current sequence
+                    this.currentSequence = [...this.currentSequence, ...parsedNumbers];
+                    this.inputNumbers = '';
+                    
+                    // Clear highlight after animation
+                    setTimeout(() => {
+                        this.highlightAdded = [];
+                    }, 1500);
+                    
+                    // Calculate next stake if we have at least 3 numbers
+                    if (this.currentSequence.length >= 3) {
+                        this.calculateNextStake();
+                    }
+                    
+                    this.saveState();
+                },
+                
+                recordWin() {
+                    if (this.currentSequence.length < 3 || this.stakeAmount <= 0) return;
+                    
+                    const winnings = this.nextStake * this.stakeAmount;
+                    this.bankroll += winnings;
+                    this.wins++;
+                    
+                    // Save sequence before modification
+                    const sequenceBefore = [...this.currentSequence];
+                    const removedIndices = [0, this.currentSequence.length - 2, this.currentSequence.length - 1];
+                    
+                    // Remove 1st and last two numbers
+                    const newSequence = this.currentSequence.filter((_, index) => 
+                        index !== 0 && 
+                        index !== this.currentSequence.length - 1 && 
+                        index !== this.currentSequence.length - 2
+                    );
+                    
+                    // Add the sum to the end
+                    newSequence.push(this.nextStake);
+                    
+                    // Record in history
+                    this.gameHistory.unshift({
+                        sequenceBefore: sequenceBefore,
+                        sequenceAfter: newSequence,
+                        removedIndices: removedIndices,
+                        addedIndices: [newSequence.length - 1],
+                        nextStake: this.nextStake,
+                        stake: this.stakeAmount,
+                        result: 'win',
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    // Update sequence
+                    this.currentSequence = newSequence;
+                    
+                    // Highlight the change
+                    this.highlightRemoved = removedIndices;
+                    setTimeout(() => {
+                        this.highlightRemoved = [];
+                        this.highlightAdded = [this.currentSequence.length - 1];
+                        setTimeout(() => {
+                            this.highlightAdded = [];
+                        }, 1000);
+                    }, 500);
+                    
+                    // Recalculate next stake
+                    if (this.currentSequence.length >= 3) {
+                        this.calculateNextStake();
+                    } else {
+                        this.nextStake = 0;
+                    }
+                    
+                    this.saveState();
+                },
+                
+                recordLoss() {
+                    if (this.currentSequence.length < 3 || this.stakeAmount <= 0) return;
+                    
+                    this.bankroll -= this.stakeAmount;
+                    this.losses++;
+                    
+                    // Save sequence before modification
+                    const sequenceBefore = [...this.currentSequence];
+                    
+                    // Add the sum to the end
+                    const newSequence = [...this.currentSequence, this.nextStake];
+                    
+                    // Record in history
+                    this.gameHistory.unshift({
+                        sequenceBefore: sequenceBefore,
+                        sequenceAfter: newSequence,
+                        removedIndices: [],
+                        addedIndices: [newSequence.length - 1],
+                        nextStake: this.nextStake,
+                        stake: this.stakeAmount,
+                        result: 'loss',
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    // Update sequence
+                    this.currentSequence = newSequence;
+                    
+                    // Highlight the change
+                    this.highlightAdded = [this.currentSequence.length - 1];
+                    setTimeout(() => {
+                        this.highlightAdded = [];
+                    }, 1500);
+                    
+                    // Recalculate next stake
+                    this.calculateNextStake();
+                    
+                    this.saveState();
+                },
+                
+                calculateNextStake() {
+                    if (this.currentSequence.length < 3) {
+                        this.nextStake = 0;
+                        return;
+                    }
+                    
+                    // Highlight the 1st and last two numbers being used for calculation
+                    this.highlightCurrent = [0, this.currentSequence.length - 2, this.currentSequence.length - 1];
+                    
+                    setTimeout(() => {
+                        this.highlightCurrent = [];
+                    }, 1500);
+                    
+                    // Next stake is sum of 1st number + last two numbers
+                    this.nextStake = this.currentSequence[0] + 
+                                    this.currentSequence[this.currentSequence.length - 2] + 
+                                    this.currentSequence[this.currentSequence.length - 1];
+                },
+                
+                resetSystem() {
+                    if (confirm('Are you sure you want to reset the entire system? This will clear all data.')) {
+                        this.currentSequence = [];
+                        this.gameHistory = [];
+                        this.nextStake = 0;
+                        this.bankroll = this.initialBankroll;
+                        this.wins = 0;
+                        this.losses = 0;
+                        this.saveState();
+                    }
+                },
+                
+                saveState() {
+                    localStorage.setItem('cancellationSystem', JSON.stringify({
+                        currentSequence: this.currentSequence,
+                        gameHistory: this.gameHistory,
+                        nextStake: this.nextStake,
+                        stakeAmount: this.stakeAmount,
+                        initialBankroll: this.initialBankroll,
+                        bankroll: this.bankroll,
+                        wins: this.wins,
+                        losses: this.losses
+                    }));
+                }
+            }
+        }
+    </script>
+</body>
+</html>
